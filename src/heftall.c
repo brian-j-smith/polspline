@@ -36,27 +36,63 @@ static double hmylog();
 /* MAXKNOTS is the maximum number of knots in a model
    HLENGTH   is the generic vector length */
 
-static void hlusolve(),hluinverse(),hlusolve2();
-static int *ihvector(),**ihmatrix();
-static double *dhvector(),**dhmatrix(),***dstriparray();
 static double *wkddd,*wkvec1,*wkvec2,**wkmat1,*wkphi,**wkmat,*wkphi2,*wkxx,*wkcand;
 static double *wkmasterpt,*wkphi3,*wkse3,*wkphi4,**wkhh,**wkpowdat,**wkpowvec;
 static double **wkinfo2,*wkscore2,*wkscore3,*wknewbas,*wknewdata,*wkphi7,**wkmat33;
 static double *wksorted;
-static void heft(),hstart2();
-static void intprep(),getcoef(),start(),thetaswap(),tossit(),nstart(),getcoefx();
-static void hiter(),hknotplace(),dubmodel(),hetse(),allocer();
-static int add(),hlocation();
-static void midblob(),basis(),lgrange();
-static int hopplus();
-static double summer(),ilambda(),xlambda();
-static int step();
-static double summer2(),lambda();
-static int step2();
-static void hremoveknot(),getse2();
-static void thetaform(),newnew();
-static int hindyl(),hindyr(),hindl(),hindr(),hindx(),hindm();
-static double hrao();
+
+void sheftx(int *nx);
+void sheft(int *nx, double *data, int *delta, int *nkstart, double *knots, double *alpha, double *tails, int *iauto, double *logl, double *theta, int *iknots, int *zerror, double *cc, int *nkmax, int *ad, int *mindist);
+static struct model *makemodel(void);
+static struct datas *makedata(int i);
+static double ***dstriparray(int r, int c, int s);
+static int *ihvector(int l);
+static double *dhvector(int l);
+static int **ihmatrix(int r, int c);
+static double **dhmatrix(int r, int c);
+static void heft(struct datas *dat, int nkstart, double alpha, struct model *mod1, int iauto, int *zerror, int nkmax, int mind);
+static void hknotplace(int *nkstart, struct model *mod1);
+static void getcoef(struct model *m1);
+static void getcoefx(double **coef2, double ***coef3, double *knots, int **icoef, int nk);
+static void start(struct model *mod1, struct datas *dat);
+static void hstart2(double *theta, int nk, double **basdata1, double **basdata2, int nx, double *tails);
+static void nstart(struct model *mod1, struct datas *dat, int nkstart);
+static void thetaswap(struct model *mod1);
+static void intprep(int *nint, int nintx, struct model *mod1, struct datas *dat, int what);
+static void midblob(int *where, int j, int i, int nint, double *basvec, double *mult, int nx, double *data);
+static void lgrange(double a, double b, double c, double d, double n, double u, double v, double *mult, int j);
+static int hopplus(double *xx, double *data, int i, int j);
+static void basis(double *x, int nx, double *knots, int nk, double **basmat, double cc, int **icoef, double ***coef3);
+static void hiter(struct model *mod1, struct datas *dat, int *zerror, int nint, int what);
+static double summer(struct model *mod1, int what, int nint, struct datas *dat);
+static double summer2(double *score, double **hessian, int what, int nk, int ndata, int nint, double *theta, double **basdata, double **basint, int *delta, double *mult);
+static double lambda(int nk, double **basis, double *theta, int which);
+static int step(struct datas *dat, struct model *mod1, int *itails, double *ldif, int nint, int *zerror, int what);
+static int step2(int nx, int *delta, int nint, double **basmat, double *mult, double *theta, int nk, double **basdata, double **hessian, int *zerror, double *score, int *itails, double *ldif, int what);
+static void tossit(struct model *mod1, struct model *modmin, double alpha, int *zerror);
+static void hremoveknot(struct model *mod1, int *zerror);
+static void hetse(struct model *mod1, struct model *modmin, double alpha);
+static void getse2(struct model *mod1);
+static int add(struct model *mod1, struct datas *dat, int nint, int *zerror, struct model *modmin, int mind);
+static double hrao(struct model *mod1, struct datas *dat, double cand, int nint, double **powvec, double **powdat, int ipowvec[3], int ipowdat[3]);
+static void newnew(double *knots, int nk, double cand, double *newbas, double *newdata, int nint, struct datas *dat, double *basvec, double **powdat, double **powvec, int ipowdat[3], int ipowvec[3]);
+static void thetaform(struct model *mod1, int besti);
+static int hindyl(int u, int l, double *x);
+static int hindyr(int u, int l, double *x);
+static int hindl(int *ll, int *uu, int mind, double *x, int nx, double knt);
+static int hindr(int *ll, int *uu, int mind, double *x, int nx, double knt);
+static int hindx(int *ll, int *uu, int nx);
+static int hindm(int *ll, int *uu, int mind, double *x, int nx, double k0, double k1);
+static int hlocation(int what, double *x, int nx, double k);
+static void dubmodel(struct model *m2, struct model *m1);
+static void hlusolve(double **a, int n, double *b, int *k);
+static void hlusolve2(double **a, int n, double *b, int *k);
+static void hluinverse(double **a, int n);
+void heftpq(double *knots, double *cc, double *thetak, double *thetal, double *thetap, int *what, double *pp, double *qq, int *nk, int *np);
+static double xlambda(double *knots, double cc, double *thetak, double *thetal, double *thetap, int nk, double x);
+static double ilambda(double *knots, double cc, double *thetak, double *thetal, double *thetap, int nk, double z1, double z2, int i);
+static void allocer(int nd, int i00);
+static double hmylog(double x);
 
 struct model {
    int nk,*iknots,**icoef,nk1,*ad;
@@ -100,8 +136,7 @@ struct datas {
    cc     - c=number
    basdata1 - used for numerical integrations
    basdata2 - used for numerical integrations  */
-static struct model *makemodel();
-static struct datas *makedata();
+
 /******************************************************************************/
 /* this routine looks ugly - and is ugly. It only relates the S-variables to
    the C-variables - almost all should be self explanatory                    */
